@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Platform Gauging Tool</title>
+    <link rel="manifest" href="../manifest.json">
+    <link rel="apple-touch-icon" href="../icon-192.png">
+    <meta name="theme-color" content="#0A1FA4">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- jsPDF + AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; margin: 10px; background: #fff; }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0A1F44;
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .topbar-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .burger-btn {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+
+            /* Android + mobile tap reliability */
+            position: relative;
+            z-index: 99999;
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
+
+        .side-menu {
+            position: fixed;
+            top: 0;
+            right: -220px;
+            width: 220px;
+            height: 100%;
+            background: #ffffff;
+            box-shadow: -2px 0 6px rgba(0,0,0,0.25);
+            transition: right 0.25s ease;
+            padding-top: 50px;
+            z-index: 9999;
+        }
+        .side-menu.open { right: 0; }
+        .side-menu a {
+            display: block;
+            padding: 10px 14px;
+            border-bottom: 1px solid #eee;
+            text-decoration: none;
+            color: #0A1F44;
+            font-size: 14px;
+        }
+        .side-menu a:hover { background: #f2f4f7; }
+
+        h1 { text-align: center; margin-bottom: 10px; color: #0A1F44; }
+        button { padding: 10px 14px; font-size: 14px; border-radius: 6px; border: none; background: #F26A21; color: white; cursor: pointer; }
+        button:active { transform: scale(0.97); background: #d85c1d; }
+        .controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
+        .small-btn { padding: 6px 8px; font-size: 12px; }
+        .section { background: white; border-radius: 8px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        .section-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .section-title { font-weight: bold; color: #0A1F44; }
+        .field-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+        label { font-size: 12px; color: #0A1F44; display: flex; flex-direction: column; }
+        input, select { padding: 6px; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; min-width: 120px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        th, td { border: 1px solid #ddd; padding: 4px; font-size: 12px; }
+        th { background: #eee; }
+        .job-info { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 10px; }
+
+        table td input,
+        table td select {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+
+        table td:last-child { text-align: center; }
+
+        table td select {
+            text-align: center;
+            text-align-last: center;
+        }
+        table td select option { text-align: center; }
+
+        .out-of-tolerance {
+            background-color: #ffcccc !important;
+            border: 2px solid #cc0000 !important;
+        }
+
+        .photo-block label {
+            font-size: 12px;
+            color: #0A1F44;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 6px;
+        }
+
+        .job-picker {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            height: 100vh;
+            background: white;
+            z-index: 9999;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-left: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+        }
+        .job-picker.hidden { display: none; }
+        .job-picker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .job-picker-list {
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .job-picker-list button {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 10px;
+            font-size: 16px;
+            border: 1px solid #444;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #000000;
+            text-align: left;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-title">Platform Gauging Tool</div>
+    <button class="burger-btn" id="burger-btn">☰</button>
+</div>
+
+<div id="side-menu" class="side-menu">
+    <a href="../index.html">Access Scoping</a>
+    <a href="../track/index.html">Track Scoping</a>
+</div>
+
+<h1>Platform Gauging</h1>
+
+<div class="controls">
+    <button id="new-job-btn">New Job</button>
+    <button id="load-job-btn">Load Job</button>
+    <button id="export-csv-btn">Export CSV</button>
+    <button id="export-pdf-btn">Export PDF</button>
+</div>
+
+<div class="job-info">
+    <label for="engineer-name">Engineer Name
+        <input id="engineer-name" type="text" placeholder="e.g. Marc Booth">
+    </label>
+    <label>Job ID
+        <input id="job-id" type="text" readonly>
+    </label>
+    <label>Shift Date
+        <input id="shift-date" type="date">
+    </label>
+</div>
+
+<div id="platformSectionsContainer">
+
+    <div class="section">
+        <div class="section-title">Station Information</div>
+
+        <div class="field-row">
+            <label>Station Name
+                <input id="station-name" type="text" placeholder="e.g. Bedford">
+            </label>
+
+            <label>What3Words
+                <input id="station-w3w" type="text" placeholder="e.g. ///apple.banana.chair">
+            </label>
+        </div>
+
+        <div class="field-row">
+            <label>Mileage (Miles)
+                <input id="station-miles" type="number" placeholder="e.g. 12">
+            </label>
+
+            <label>Mileage (Chains)
+                <input id="station-chains" type="number" placeholder="e.g. 34">
+            </label>
+
+            <label>ELR
+                <input id="station-elr" type="text" placeholder="e.g. SPC1">
+            </label>
+        </div>
+
+        <div class="field-row">
+            <label>Track ID
+                <input id="track-id" type="text" placeholder="e.g. 2100">
+            </label>
+
+            <label>Line
+                <select id="station-line">
+                    <option value="">Select Line</option>
+                    <option>Down Fast</option>
+                    <option>Up Fast</option>
+                    <option>Down Slow</option>
+                    <option>Up Slow</option>
+                    <option>Branch Line</option>
+                    <option>Siding</option>
+                    <option>Major Station Platform</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="field-row">
+            <label>Platform Number
+                <select id="platform-number">
+                    <option value="">Select</option>
+                    <option>1</option><option>2</option><option>3</option><option>4</option>
+                    <option>5</option><option>6</option><option>7</option><option>8</option>
+                    <option>9</option><option>10</option><option>11</option><option>12</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Datum Information</div>
+        <div class="field-row">
+            <label>Datum Marker Spacing (m)
+                <input id="datum-spacing" type="number" step="0.01" placeholder="e.g. 3.0">
+            </label>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Platform Measurements</div>
+
+        <table id="datumTable">
+            <thead>
+                <tr>
+                    <th>Datum Point</th>
+                    <th>Offset (X) [mm]</th>
+                    <th>Height (Y) [mm]</th>
+                    <th>Cant (mm)</th>
+                    <th>Back-to-Back (mm)</th>
+                    <th>Coping Overhang (mm)</th>
+                    <th>Notes</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="datumTableBody"></tbody>
+        </table>
+
+        <button type="button" id="addDatumBtn" class="small-btn">Add Datum Point</button>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Photos</div>
+        <input type="file" accept="image/*" onchange="handlePhotoUpload(this)">
+        <div id="photo-preview"></div>
+    </div>
+</div>
+
+<div id="job-picker" class="job-picker hidden">
+    <div class="job-picker-header">
+        <h3>Select a Job</h3>
+        <div style="display:flex; gap:8px;">
+            <button id="delete-all-jobs" class="small-btn" style="background:#b30000; color:white;">Delete All</button>
+            <button id="close-job-picker" class="small-btn">Close</button>
+        </div>
+    </div>
+    <div id="job-picker-list" class="job-picker-list"></div>
+</div>
+
+<script>
+    const jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+    const STORAGE_KEY = "platformGaugingJobs_v1";
+
+    let jobsData = { jobs: {}, currentJobId: null };
+
+    function saveJobsData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(jobsData));
+    }
+
+    function loadJobsData() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try { jobsData = JSON.parse(saved); } catch(e) { jobsData = { jobs:{}, currentJobId:null }; }
+        }
+        if (!jobsData.jobs) jobsData.jobs = {};
+    }
+
+    function getCurrentJob() {
+        return jobsData.jobs[jobsData.currentJobId] || null;
+    }
+
+    function todayISO() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+
+    function ddmmyyyyFromISO(iso) {
+        const [y,m,d] = iso.split("-");
+        return `${d}${m}${y}`;
+    }
+
+    function getInitials(name) {
+        if (!name) return "";
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0][0].toUpperCase();
+        const first = parts[0][0].toUpperCase();
+        const last = parts[parts.length - 1][0].toUpperCase();
+        return first + last;
+    }
+
+    function generateJobId(shiftDateISO, engineerName) {
+        const baseDate = ddmmyyyyFromISO(shiftDateISO);
+        const initials = getInitials(engineerName) || "XX";
+        const prefix = `${baseDate}-`;
+        const existing = Object.keys(jobsData.jobs).filter(id => id.startsWith(prefix));
+        let seq = 1;
+        if (existing.length) {
+            const nums = existing.map(id => parseInt(id.split("-")[1],10) || 1);
+            seq = Math.max(...nums) + 1;
+        }
+        return `${baseDate}-${String(seq).padStart(3,"0")}-${initials}`;
+    }
+
+    function createBlankPlatform() {
+        return {
+            stationName: "",
+            w3w: "",
+            miles: "",
+            chains: "",
+            elr: "",
+            trackId: "",
+            line: "",
+            platformNumber: "",
+            datumSpacing: "",
+            rows: []
+        };
+    }
+
+    function createNewJob() {
+        const engineerNameInput = document.getElementById("engineer-name");
+        const engineerName = engineerNameInput.value.trim();
+        const shiftDate = todayISO();
+        const id = generateJobId(shiftDate, engineerName);
+
+        jobsData.jobs[id] = {
+            id,
+            shiftDate,
+            engineerName,
+            photos: [],
+            platform: createBlankPlatform()
+        };
+        jobsData.currentJobId = id;
+        saveJobsData();
+        renderAll();
+    }
+
+    function updateJobHeaderFields() {
+        const job = getCurrentJob();
+        const jobIdInput = document.getElementById("job-id");
+        const jobDateInput = document.getElementById("shift-date");
+        const engineerNameInput = document.getElementById("engineer-name");
+
+        if (!job) {
+            jobIdInput.value = "";
+            jobDateInput.value = "";
+            engineerNameInput.value = "";
+            return;
+        }
+
+        jobIdInput.value = job.id;
+        jobDateInput.value = job.shiftDate;
+        engineerNameInput.value = job.engineerName || "";
+    }
+
+    function renderAll() {
+        const job = getCurrentJob();
+        if (!job) return;
+
+        updateJobHeaderFields();
+
+        const pg = job.platform || createBlankPlatform();
+        job.platform = pg;
+
+        document.getElementById("station-name").value = pg.stationName;
+        document.getElementById("station-w3w").value = pg.w3w;
+        document.getElementById("station-miles").value = pg.miles;
+        document.getElementById("station-chains").value = pg.chains;
+        document.getElementById("station-elr").value = pg.elr;
+        document.getElementById("track-id").value = pg.trackId;
+        document.getElementById("station-line").value = pg.line;
+        document.getElementById("platform-number").value = pg.platformNumber;
+        document.getElementById("datum-spacing").value = pg.datumSpacing;
+
+        const body = document.getElementById("datumTableBody");
+        body.innerHTML = "";
+
+        if (!pg.rows || !pg.rows.length) {
+            addDatumRow();
+        } else {
+            pg.rows.forEach(r => {
+                const row = addDatumRow();
+                row.querySelector(".datum-point").value = r.datum || "";
+                row.querySelector(".offset-x").value = r.offset || "";
+                row.querySelector(".height-y").value = r.height || "";
+                row.querySelector(".cant").value = r.cant || "";
+                row.querySelector(".btb").value = r.btb || "";
+                row.querySelector(".overhang").value = r.overhang || "";
+                row.querySelector(".notes").value = r.notes || "";
+                row.querySelectorAll("input").forEach(input => checkTolerance(input));
+            });
+        }
+
+        renderPhotoPreview();
+    }
+
+    function saveCurrentJob() {
+        const job = getCurrentJob();
+        if (!job) return;
+
+        const pg = job.platform;
+
+        pg.stationName = document.getElementById("station-name").value;
+        pg.w3w = document.getElementById("station-w3w").value;
+        pg.miles = document.getElementById("station-miles").value;
+        pg.chains = document.getElementById("station-chains").value;
+        pg.elr = document.getElementById("station-elr").value;
+        pg.trackId = document.getElementById("track-id").value;
+        pg.line = document.getElementById("station-line").value;
+        pg.platformNumber = document.getElementById("platform-number").value;
+        pg.datumSpacing = document.getElementById("datum-spacing").value;
+
+        pg.rows = [];
+        document.querySelectorAll("#datumTableBody tr").forEach(tr => {
+            pg.rows.push({
+                datum: tr.querySelector(".datum-point").value,
+                offset: tr.querySelector(".offset-x").value,
+                height: tr.querySelector(".height-y").value,
+                cant: tr.querySelector(".cant").value,
+                btb: tr.querySelector(".btb").value,
+                overhang: tr.querySelector(".overhang").value,
+                notes: tr.querySelector(".notes").value
+            });
+        });
+
+        saveJobsData();
+    }
+
+    function addDatumRow() {
+        const tableBody = document.getElementById("datumTableBody");
+        const newRow = document.createElement("tr");
+
+        let nextDatum = 1;
+        const lastRow = tableBody.lastElementChild;
+        if (lastRow) {
+            nextDatum = parseInt(lastRow.querySelector(".datum-point").value || "0", 10) + 1;
+        }
+
+        newRow.innerHTML = `
+            <td><input type="number" class="datum-point" value="${nextDatum}" readonly></td>
+            <td><input type="number" class="offset-x" placeholder="mm"></td>
+            <td><input type="number" class="height-y" placeholder="mm"></td>
+            <td><input type="number" class="cant" placeholder="mm"></td>
+            <td><input type="number" class="btb" placeholder="mm"></td>
+            <td><input type="number" class="overhang" placeholder="mm"></td>
+            <td><input type="text" class="notes" placeholder="Notes"></td>
+            <td><button type="button" class="small-btn" onclick="deleteDatumRow(this)" style="background:#d9534f;">X</button></td>
+        `;
+
+        tableBody.appendChild(newRow);
+
+        newRow.querySelectorAll("input").forEach(input => {
+            input.addEventListener("input", () => checkTolerance(input));
+        });
+
+        return newRow;
+    }
+
+    function deleteDatumRow(button) {
+        const row = button.closest("tr");
+        row.remove();
+        document.querySelectorAll("#datumTableBody tr").forEach((r, idx) => {
+            r.querySelector(".datum-point").value = idx + 1;
+        });
+    }
+
+    function checkTolerance(input) {
+        const value = parseFloat(input.value);
+        if (isNaN(value)) {
+            input.classList.remove("out-of-tolerance");
+            return;
+        }
+
+        if (input.classList.contains("offset-x")) {
+            value > 745 ? input.classList.add("out-of-tolerance") : input.classList.remove("out-of-tolerance");
+        }
+        if (input.classList.contains("height-y")) {
+            value < 900 ? input.classList.add("out-of-tolerance") : input.classList.remove("out-of-tolerance");
+        }
+        if (input.classList.contains("btb")) {
+            value < 1800 ? input.classList.add("out-of-tolerance") : input.classList.remove("out-of-tolerance");
+        }
+    }
+
+    function handlePhotoUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const job = getCurrentJob();
+            if (!job) return;
+
+            if (!job.photos) job.photos = [];
+            if (job.photos.length >= 5) {
+                alert("Maximum of 5 photos allowed.");
+                return;
+            }
+
+            job.photos.push(reader.result);
+            saveJobsData();
+            renderPhotoPreview();
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    function renderPhotoPreview() {
+        const job = getCurrentJob();
+        const container = document.getElementById("photo-preview");
+        if (!container || !job) return;
+
+        container.innerHTML = "";
+
+        (job.photos || []).forEach((src, idx) => {
+            const wrap = document.createElement("div");
+            wrap.style.display = "inline-block";
+            wrap.style.margin = "4px";
+
+            const img = document.createElement("img");
+            img.src = src;
+            img.style.width = "80px";
+            img.style.border = "1px solid #ccc";
+            img.style.borderRadius = "4px";
+
+            const del = document.createElement("button");
+            del.textContent = "X";
+            del.className = "small-btn";
+            del.style.marginLeft = "4px";
+            del.onclick = () => {
+                job.photos.splice(idx, 1);
+                saveJobsData();
+                renderPhotoPreview();
+            };
+
+            wrap.appendChild(img);
+            wrap.appendChild(del);
+            container.appendChild(wrap);
+        });
+    }
+
+    function exportCSV() {
+        saveCurrentJob();
+        const job = getCurrentJob();
+        if (!job) return;
+
+        const pg = job.platform;
+        const rows = [];
+
+        rows.push("JobID,ShiftDate,EngineerName,EngineerInitials,StationName,W3W,Miles,Chains,ELR,TrackID,Line,Platform,DatumSpacing,Datum,Offset,Height,Cant,B2B,Overhang,Notes");
+
+        const initials = getInitials(job.engineerName);
+
+        (pg.rows || []).forEach(r => {
+            rows.push([
+                job.id,
+                job.shiftDate,
+                job.engineerName || "",
+                initials,
+                pg.stationName,
+                pg.w3w,
+                pg.miles,
+                pg.chains,
+                pg.elr,
+                pg.trackId,
+                pg.line,
+                pg.platformNumber,
+                pg.datumSpacing,
+                r.datum,
+                r.offset,
+                r.height,
+                r.cant,
+                r.btb,
+                r.overhang,
+                r.notes
+            ].map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(","));
+        });
+
+        const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${job.id}_platform_gauging.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function exportPDF() {
+        saveCurrentJob();
+        const job = getCurrentJob();
+        if (!job) return alert("No job loaded.");
+
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) {
+            alert("PDF engine not available.");
+            return;
+        }
+
+        const pdf = new jsPDF("l","mm","a4");
+        const pageWidth = pdf.internal.pageSize.getWidth();
+
+        const pg = job.platformGauging || job.platform || { rows: [] };
+
+        function drawHeader() {
+            pdf.setFillColor(10,31,68);
+            pdf.rect(0,0,pageWidth,18,"F");
+            pdf.setTextColor(255,255,255);
+            pdf.setFontSize(14);
+            pdf.text("Platform Gauging Report", 10, 12);
+            pdf.setFontSize(10);
+            pdf.text(`Job: ${job.id || "-"}`, pageWidth-110, 8);
+            pdf.text(`Shift: ${job.shiftDate || "-"}`, pageWidth-110, 12);
+            pdf.text(`Engineer: ${job.engineerName || "-"}`, pageWidth-110, 16);
+            pdf.setTextColor(0,0,0);
+        }
+
+        drawHeader();
+        let currentY = 24;
+
+        pdf.setFontSize(12);
+        pdf.text("Platform Details", 10, currentY);
+        currentY += 6;
+
+        const metaBody = [
+            ["Station Name", pg.stationName || ""],
+            ["What3Words", pg.w3w || ""],
+            ["Mileage", `${pg.miles || ""}m ${pg.chains || ""}ch`],
+            ["ELR", pg.elr || ""],
+            ["Track ID", pg.trackId || ""],
+            ["Line", pg.line || ""],
+            ["Platform Number", pg.platformNumber || ""],
+            ["Datum Marker Spacing (m)", pg.datumSpacing || ""]
+        ];
+
+        pdf.autoTable({
+            startY: currentY,
+            head: [["Field","Value"]],
+            body: metaBody,
+            theme: "grid",
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fillColor: [226,226,226] },
+            margin: { left: 10, right: 10 },
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) drawHeader();
+            }
+        });
+
+        currentY = pdf.lastAutoTable.finalY + 6;
+
+        const rows = Array.isArray(pg.rows) ? pg.rows.map(r => [
+            r.datum || "",
+            r.offset || "",
+            r.height || "",
+            r.cant || "",
+            r.btb || "",
+            r.overhang || "",
+            r.notes || ""
+        ]) : [];
+
+        if (rows.length) {
+            pdf.autoTable({
+                startY: currentY,
+                head: [["Datum","Offset (mm)","Height (mm)","Cant (mm)","Back-to-Back (mm)","Coping Overhang (mm)","Notes"]],
+                body: rows,
+                theme: "grid",
+                styles: { fontSize: 9, cellPadding: 2 },
+                headStyles: { fillColor: [200,200,200] },
+                margin: { left: 10, right: 10 },
+                didDrawPage: (data) => {
+                    if (data.pageNumber > 1) drawHeader();
+                }
+            });
+
+            currentY = pdf.lastAutoTable.finalY + 8;
+        }
+
+        if (job.photos && job.photos.length) {
+            job.photos.forEach((src, i) => {
+                pdf.addPage();
+                drawHeader();
+                pdf.setFontSize(12);
+                pdf.text(`Photo ${i + 1}`, 10, 24);
+                pdf.addImage(src, "JPEG", 10, 30, 180, 120);
+            });
+        }
+
+        pdf.save(`${job.id || "platform"}_platform.pdf`);
+    }
+
+    function handleNewJob() {
+        if (getCurrentJob()) {
+            const ok = confirm("Start a new job? Current job will stay saved and you’ll get a fresh sheet.");
+            if (!ok) return;
+        }
+        createNewJob();
+    }
+
+    function handleJobDateChange() {
+        const job = getCurrentJob();
+        if (!job) return;
+        const jobDateInput = document.getElementById("shift-date");
+        const iso = jobDateInput.value;
+        if (!iso) return;
+
+        const newId = generateJobId(iso, job.engineerName);
+        const oldId = job.id;
+
+        job.shiftDate = iso;
+        job.id = newId;
+
+        jobsData.jobs[newId] = job;
+        if (newId !== oldId) delete jobsData.jobs[oldId];
+
+        jobsData.currentJobId = newId;
+        saveJobsData();
+        updateJobHeaderFields();
+    }
+
+    function handleEngineerNameChange() {
+        const job = getCurrentJob();
+        if (!job) return;
+        const engineerNameInput = document.getElementById("engineer-name");
+        job.engineerName = engineerNameInput.value.trim();
+
+        const parts = job.id.split("-");
+        if (parts.length >= 3) {
+            const datePart = parts[0];
+            const seqPart = parts[1];
+            const initials = getInitials(job.engineerName) || "XX";
+            const newId = `${datePart}-${seqPart}-${initials}`;
+            const oldId = job.id;
+
+            job.id = newId;
+            jobsData.jobs[newId] = job;
+            if (newId !== oldId) delete jobsData.jobs[oldId];
+            jobsData.currentJobId = newId;
+        }
+
+        saveJobsData();
+        updateJobHeaderFields();
+    }
+
+    function openJobPicker() {
+        const panel = document.getElementById("job-picker");
+        const list = document.getElementById("job-picker-list");
+
+        list.innerHTML = "";
+
+        const ids = Object.keys(jobsData.jobs).sort().reverse();
+
+        if (!ids.length) {
+            const msg = document.createElement("div");
+            msg.textContent = "No saved jobs on this device.";
+            list.appendChild(msg);
+            panel.classList.remove("hidden");
+            return;
+        }
+
+        ids.forEach(id => {
+            const job = jobsData.jobs[id];
+
+            const row = document.createElement("div");
+            row.style.display = "flex";
+            row.style.gap = "8px";
+            row.style.marginBottom = "10px";
+
+            const loadBtn = document.createElement("button");
+            loadBtn.textContent = `${id} | ${job.shiftDate || "-"} | ${job.engineerName || "-"}`;
+            loadBtn.style.flex = "1";
+            loadBtn.onclick = () => {
+                jobsData.currentJobId = id;
+                saveJobsData();
+                renderAll();
+                closeJobPicker();
+            };
+
+            const delBtn = document.createElement("button");
+            delBtn.textContent = "Delete";
+            delBtn.className = "small-btn";
+            delBtn.style.background = "#b30000";
+            delBtn.style.color = "white";
+            delBtn.style.width = "80px";
+            delBtn.onclick = () => {
+                if (!confirm(`Delete job ${id}?`)) return;
+
+                delete jobsData.jobs[id];
+
+                if (jobsData.currentJobId === id) {
+                    jobsData.currentJobId = null;
+                    createNewJob();
+                }
+
+                saveJobsData();
+                openJobPicker();
+            };
+
+            row.appendChild(loadBtn);
+            row.appendChild(delBtn);
+            list.appendChild(row);
+        });
+
+        panel.classList.remove("hidden");
+    }
+
+    function closeJobPicker() {
+        document.getElementById("job-picker").classList.add("hidden");
+    }
+
+    function deleteAllJobs() {
+        if (!confirm("Delete ALL jobs? This cannot be undone.")) return;
+
+        jobsData.jobs = {};
+        jobsData.currentJobId = null;
+        saveJobsData();
+
+        createNewJob();
+        openJobPicker();
+    }
+
+    function init() {
+        // Data
+        loadJobsData();
+        if (!jobsData.currentJobId || !jobsData.jobs[jobsData.currentJobId]) {
+            createNewJob();
+        } else {
+            renderAll();
+        }
+
+        // Burger menu (desktop + Android)
+        const burgerBtn = document.getElementById("burger-btn");
+        const sideMenu = document.getElementById("side-menu");
+
+        burgerBtn.addEventListener("click", () => {
+            sideMenu.classList.toggle("open");
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!sideMenu.contains(e.target) && e.target !== burgerBtn) {
+                sideMenu.classList.remove("open");
+            }
+        });
+
+        // Controls
+        document.getElementById("new-job-btn").addEventListener("click", handleNewJob);
+        document.getElementById("load-job-btn").addEventListener("click", openJobPicker);
+        document.getElementById("export-csv-btn").addEventListener("click", exportCSV);
+        document.getElementById("export-pdf-btn").addEventListener("click", exportPDF);
+
+        document.getElementById("shift-date").addEventListener("change", handleJobDateChange);
+        document.getElementById("engineer-name").addEventListener("change", handleEngineerNameChange);
+
+        document.getElementById("addDatumBtn").addEventListener("click", addDatumRow);
+        document.getElementById("close-job-picker").addEventListener("click", closeJobPicker);
+        document.getElementById("delete-all-jobs").addEventListener("click", deleteAllJobs);
+    }
+
+    // Script is at the bottom, so DOM is ready – just run init
+    init();
+</script>
+
+</body>
+</html>
