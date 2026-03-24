@@ -469,7 +469,7 @@ reader.readAsDataURL(file);
         photoBlock.innerHTML = `
             <label>
                 Add Photo
-                <input type="file" accept="image/*" capture="environment" onchange="handleMultiPhotoUpload(this)">
+                <input type="file" accept="image/*" onchange="handleMultiPhotoUpload(this)">
             </label>
             <div id="photo-preview"></div>
         `;
@@ -839,17 +839,49 @@ function exportPDF() {
     });
 }
 
-        if (job.photos && job.photos.length) {
-            job.photos.forEach((src, i) => {
-                pdf.addPage();
-                drawHeader();
-                pdf.setFontSize(12);
-                pdf.text(`Photo ${i + 1}`, 10, 24);
-                pdf.addImage(src, "JPEG", 10, 30, 180, 120);
-            });
-        }
+       if (job.photos && job.photos.length) {
+    const photoPromises = job.photos.map((src, i) => {
+        return new Promise(resolve => {
+            pdf.addPage();
+            drawHeader();
+            pdf.setFontSize(12);
+            pdf.text(`Photo ${i + 1}`, 10, 24);
 
+            const img = new Image();
+            img.onload = function() {
+                let w = img.width;
+                let h = img.height;
+
+                const maxW = 180;
+                const maxH = 120;
+
+                let newW, newH;
+
+                if (w > h) {
+                    const scale = Math.min(maxW / w, maxH / h);
+                    newW = w * scale;
+                    newH = h * scale;
+                } else {
+                    const scale = Math.min(maxH / w, maxW / h);
+                    newW = w * scale;
+                    newH = h * scale;
+                }
+
+                pdf.addImage(img, "JPEG", 10, 30, newW, newH);
+                resolve();
+            };
+            img.src = src;
+        });
+    });
+
+    Promise.all(photoPromises).then(() => {
         pdf.save(`${job.id}_access.pdf`);
+    });
+
+    return;
+}
+
+pdf.save(`${job.id}_access.pdf`);
     }
 
     function downloadBlob(blob, filename) {
@@ -1051,49 +1083,46 @@ if ("serviceWorker" in navigator) {
 	<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
 	<script>
-// Reads EXIF orientation and returns a corrected base64 image
 function fixImageOrientation(file, callback) {
     const reader = new FileReader();
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-            // Create canvas
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
 
-            // Default canvas size
             let width = img.width;
             let height = img.height;
 
-            // Read EXIF orientation
             EXIF.getData(img, function() {
                 const orientation = EXIF.getTag(this, "Orientation");
 
-                // Rotate canvas if needed
-                if (orientation === 6) { // 90° clockwise
+                // Default canvas size
+                canvas.width = width;
+                canvas.height = height;
+
+                // Only rotate when EXIF explicitly says so
+                if (orientation === 6) { // 90 CW
                     canvas.width = height;
                     canvas.height = width;
                     ctx.rotate(90 * Math.PI / 180);
                     ctx.drawImage(img, 0, -height);
-                } else if (orientation === 8) { // 90° counter‑clockwise
+                } 
+                else if (orientation === 8) { // 90 CCW
                     canvas.width = height;
                     canvas.height = width;
                     ctx.rotate(-90 * Math.PI / 180);
                     ctx.drawImage(img, -width, 0);
-                } else if (orientation === 3) { // 180°
-                    canvas.width = width;
-                    canvas.height = height;
+                } 
+                else if (orientation === 3) { // 180
                     ctx.rotate(Math.PI);
                     ctx.drawImage(img, -width, -height);
-                } else {
+                } 
+                else {
                     // No rotation needed
-                    canvas.width = width;
-                    canvas.height = height;
                     ctx.drawImage(img, 0, 0);
                 }
 
-
-                // Return corrected image
                 callback(canvas.toDataURL("image/jpeg", 0.9));
             });
         };
@@ -1102,6 +1131,7 @@ function fixImageOrientation(file, callback) {
     reader.readAsDataURL(file);
 }
 </script>
+
 
 
 </body>
