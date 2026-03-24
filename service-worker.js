@@ -1,4 +1,4 @@
-const CACHE_NAME = "rail-scoping-suite-v2";
+const CACHE_NAME = "rail-scoping-suite-v3";
 
 const ASSETS_TO_CACHE = [
   "/rail-scoping-suite/",
