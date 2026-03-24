@@ -242,7 +242,8 @@
 
     <hr class="footer-divider">
 
-    <p class="version">Version 1.0.0 — Updated March 2026</p>
+    <p id="version" class="version"></p>
+
 
     <div class="footer">© Varlon Consultancy Ltd</div>
 
@@ -251,6 +252,19 @@
             document.getElementById("sideMenu").classList.toggle("open");
         }
     </script>
+
+    <script>
+    const now = new Date();
+    const version = 
+        now.getFullYear() + "." +
+        String(now.getMonth() + 1).padStart(2, '0') + "." +
+        String(now.getDate()).padStart(2, '0') + "." +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0');
+
+    document.getElementById("version").textContent = "Build " + version;
+</script>
+
 
 </body>
 </html>
