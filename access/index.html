@@ -1099,7 +1099,6 @@ function fixImageOrientation(file, callback) {
             const isLandscape = width > height;
 
             if (isLandscape) {
-                // Rotate 90° counter‑clockwise
                 canvas.width = height;
                 canvas.height = width;
 
@@ -1107,8 +1106,10 @@ function fixImageOrientation(file, callback) {
                 ctx.rotate(-Math.PI / 2);
 
                 ctx.drawImage(img, 0, 0);
+
+                // 🔥 CRITICAL FIX: reset transform so PDF sees the bitmap
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
             } else {
-                // Portrait or square
                 canvas.width = width;
                 canvas.height = height;
 
@@ -1124,7 +1125,7 @@ function fixImageOrientation(file, callback) {
     reader.readAsDataURL(file);
 }
 
-}</script>
+</script>
 
 
 
