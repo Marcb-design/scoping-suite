@@ -341,22 +341,25 @@ table td.actions-cell {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = () => {
-            const job = getCurrentJob();
-            if (!job) return;
+       reader.onload = () => {
+    const job = getCurrentJob();
+    if (!job) return;
 
-            if (!job.photos) job.photos = [];
-            if (job.photos.length >= 5) {
-                alert("Maximum of 5 photos allowed.");
-                return;
-            }
+    if (!job.photos) job.photos = [];
+    if (job.photos.length >= 5) {
+        alert("Maximum of 5 photos allowed.");
+        return;
+    }
 
-            job.photos.push(reader.result);
-            saveJobsData();
-            renderPhotoPreview();
-        };
+    // FIX ORIENTATION BEFORE STORING
+    fixImageOrientation(file, function(correctedImage) {
+        job.photos.push(correctedImage);
+        saveJobsData();
+        renderPhotoPreview();
+    });
+};
 
-        reader.readAsDataURL(file);
+reader.readAsDataURL(file);
     }
 
     function renderPhotoPreview() {
@@ -1045,6 +1048,61 @@ if ("serviceWorker" in navigator) {
         .catch(err => console.error("SW registration failed:", err));
 }
 </script>
+	<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
+	<script>
+// Reads EXIF orientation and returns a corrected base64 image
+function fixImageOrientation(file, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            // Create canvas
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // Default canvas size
+            let width = img.width;
+            let height = img.height;
+
+            // Read EXIF orientation
+            EXIF.getData(img, function() {
+                const orientation = EXIF.getTag(this, "Orientation");
+
+                // Rotate canvas if needed
+                if (orientation === 6) { // 90° clockwise
+                    canvas.width = height;
+                    canvas.height = width;
+                    ctx.rotate(90 * Math.PI / 180);
+                    ctx.drawImage(img, 0, -height);
+                } else if (orientation === 8) { // 90° counter‑clockwise
+                    canvas.width = height;
+                    canvas.height = width;
+                    ctx.rotate(-90 * Math.PI / 180);
+                    ctx.drawImage(img, -width, 0);
+                } else if (orientation === 3) { // 180°
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.rotate(Math.PI);
+                    ctx.drawImage(img, -width, -height);
+                } else {
+                    // No rotation needed
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0);
+                }
+
+
+                // Return corrected image
+                callback(canvas.toDataURL("image/jpeg", 0.9));
+            });
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+</script>
+
 
 </body>
 </html>
