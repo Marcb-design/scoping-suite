@@ -1,0 +1,2047 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Access Scoping Tool</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#0A1FA4">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
+    <style>
+        :root {
+            --navy: #0A1F44;
+            --orange: #F26A21;
+            --orange-dark: #d85c1d;
+            --bg: #f4f6f8;
+            --card: #ffffff;
+            --line: #d7dde5;
+            --text: #1b2733;
+            --muted: #6b7683;
+            --danger: #b30000;
+            --danger-soft: #d9534f;
+            --ok: #2e8b57;
+            --fail: #c0392b;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        body {
+            padding: 10px;
+            padding-bottom: 40px;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        button,
+        a,
+        input,
+        select,
+        textarea {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+            font: inherit;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--navy);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            position: sticky;
+            top: 8px;
+            z-index: 60;
+        }
+
+        .topbar-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .burger-btn {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+            position: relative;
+            z-index: 61;
+        }
+
+        .side-menu {
+            position: fixed;
+            top: 0;
+            right: -240px;
+            width: 230px;
+            height: 100%;
+            background: #fff;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+            transition: right 0.25s ease;
+            padding-top: 56px;
+            z-index: 70;
+        }
+
+        .side-menu.open { right: 0; }
+
+        .side-menu a {
+            display: block;
+            padding: 12px 14px;
+            border-bottom: 1px solid #eee;
+            text-decoration: none;
+            color: var(--navy);
+            font-size: 14px;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 12px 0;
+            color: var(--navy);
+            font-size: 26px;
+        }
+
+        h2 {
+            margin: 0 0 12px;
+            color: var(--navy);
+            font-size: 18px;
+        }
+
+        button {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: none;
+            background: var(--orange);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        button:active {
+            transform: scale(0.98);
+            background: var(--orange-dark);
+        }
+
+        button[disabled] {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .small-btn {
+            padding: 7px 10px;
+            font-size: 12px;
+        }
+
+        .controls,
+        .job-info,
+        .field-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .controls,
+        .job-info {
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .controls {
+            position: sticky;
+            top: 58px;
+            z-index: 55;
+            background: rgba(244, 246, 248, 0.96);
+            padding: 8px 0 4px;
+        }
+
+        .section,
+        .after-work,
+        .status-banner {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-weight: 700;
+            color: var(--navy);
+            font-size: 16px;
+        }
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            color: var(--navy);
+            font-size: 12px;
+            min-width: 120px;
+            flex: 1 1 140px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px;
+            background: #fff;
+            color: var(--text);
+        }
+
+        textarea {
+            min-height: 96px;
+            resize: vertical;
+        }
+
+        .readonly {
+            background: #f4f6f8;
+        }
+
+        .photo-block {
+            margin-top: 10px;
+        }
+
+        #photo-preview,
+        #after-photo-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .preview-photo-card {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 6px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .preview-photo-card img {
+            width: 88px;
+            height: 88px;
+            object-fit: cover;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #fff;
+            image-orientation: from-image;
+        }
+
+         .date-preview {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .status-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+        }
+
+        .status-banner strong {
+            color: var(--navy);
+        }
+
+        .status-banner small {
+            color: var(--muted);
+            display: block;
+            margin-top: 3px;
+        }
+
+        .status-pill {
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: #eef3f8;
+            color: var(--navy);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        th {
+            background: #eee;
+            color: var(--navy);
+        }
+
+        table td input,
+        table td select {
+            min-width: 140px;
+            padding: 10px;
+            font-size: 15px;
+        }
+
+        td.actions-cell {
+            width: 90px;
+            text-align: center;
+        }
+
+        .status-cell {
+            min-width: 150px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+        .job-picker {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(92vw, 560px);
+            height: 100vh;
+            background: #fff;
+            z-index: 120;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-left: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+            box-shadow: 0 0 18px rgba(0,0,0,0.22);
+        }
+
+        .job-picker.hidden { display: none; }
+
+        .job-picker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+
+        .job-picker-list {
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .job-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .job-row button:first-child {
+            flex: 1;
+            text-align: left;
+            background: #fff;
+            color: #000;
+            border: 1px solid #444;
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 31, 68, 0.36);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+
+        .overlay.open { display: flex; }
+
+        .overlay-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 18px;
+            width: min(90vw, 360px);
+            text-align: center;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+        }
+
+        .spinner {
+            width: 34px;
+            height: 34px;
+            border: 4px solid #dde5ee;
+            border-top-color: var(--navy);
+            border-radius: 50%;
+            margin: 0 auto 12px;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .overlay-title {
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 6px;
+        }
+
+        .overlay-subtitle {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 640px) {
+            body { padding: 8px; }
+            h1 { font-size: 22px; }
+            .topbar { top: 0; }
+            .controls {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                top: 56px;
+            }
+            .controls button { width: 100%; }
+            #share-pdf-btn { grid-column: 1 / -1; }
+            .status-banner {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .job-info,
+            .field-row,
+            .section-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            label {
+                min-width: 0;
+                width: 100%;
+                flex: 1 1 100%;
+            }
+
+            .job-picker-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .job-row {
+                flex-direction: column;
+            }
+            .job-row button:last-child {
+                width: 100%;
+            }
+            .table-wrap { overflow-x: visible; }
+            table,
+            thead,
+            tbody,
+            tr,
+            td {
+                display: block;
+                width: 100%;
+            }
+            thead { display: none; }
+            table {
+                width: 100%;
+                min-width: 0;
+            }
+            tr {
+                background: #fff;
+                border: 1px solid #ddd;
+                border-radius: 10px;
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+            td {
+                border: none;
+                border-bottom: 1px solid #eee;
+                white-space: normal;
+                padding: 8px 0;
+            }
+            td:last-child { border-bottom: none; }
+            td::before {
+                content: attr(data-label);
+                display: block;
+                margin-bottom: 4px;
+                color: var(--navy);
+                font-size: 11px;
+                font-weight: 700;
+            }
+            table td input,
+            table td select {
+                min-width: 0;
+                width: 100%;
+                font-size: 14px;
+            }
+            td.actions-cell button { width: 100%; }
+            .status-cell {
+                min-width: 0;
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div class="topbar-title">Access Scoping Tool</div>
+        <button class="burger-btn" id="burger-btn" type="button" aria-label="Open menu">&#9776;</button>
+    </div>
+
+    <div id="side-menu" class="side-menu">
+        <a href="../index.html">Home</a>
+        <a href="../track/index.html">Track Scoping</a>
+    </div>
+
+    <h1>Access Scoping</h1>
+
+    <div class="status-banner">
+        <div><strong>Ready</strong></div>
+        <div id="storage-pill" class="status-pill">Storage: checking...</div>
+    </div>
+
+    <div class="controls">
+        <button id="new-job-btn" type="button">New Job</button>
+        <button id="load-job-btn" type="button">Load Job</button>
+        <button id="export-csv-btn" type="button">Export CSV</button>
+        <button id="export-pdf-btn" type="button">Export PDF</button>
+        <button id="share-pdf-btn" type="button">Share PDF</button>
+    </div>
+
+    <div class="job-info">
+        <label>Engineer Name
+            <input id="engineer-name" type="text" placeholder="e.g. Marc Booth" autocomplete="name" autocorrect="off" autocapitalize="words" spellcheck="false" inputmode="text">
+        </label>
+
+        <label>Job ID
+            <input id="job-id" class="readonly" type="text" readonly>
+        </label>
+
+        <label>Shift Date
+            <input id="job-date" type="date">
+            <span id="job-date-display" class="date-preview">DD/MM/YYYY</span>
+        </label>
+
+        <label>Expected Completion Date
+            <input id="expected-completion-date" type="date">
+            <span id="expected-completion-date-display" class="date-preview">DD/MM/YYYY</span>
+        </label>
+    </div>
+
+    <div id="sectionsContainer"></div>
+
+    <div class="after-work">
+        <h2>After Work Completion</h2>
+
+        <div class="field-row">
+            <label>Completed By
+                <input id="completed-by" type="text" placeholder="Engineer name">
+            </label>
+
+            <label>Completion Date
+                <input id="completed-date" type="date">
+                <span id="completed-date-display" class="date-preview">DD/MM/YYYY</span>
+            </label>
+        </div>
+
+        <div class="field-row">
+            <label>Job Reference
+                <input id="job-reference" type="text" placeholder="Reference number">
+            </label>
+        </div>
+
+        <label>Completion Notes
+            <textarea id="completion-notes" rows="3" placeholder="Notes about completed work"></textarea>
+        </label>
+
+        <div class="photo-block">
+            <label>Add AFTER Photo
+                <input id="after-photo-input" type="file" accept="image/*" multiple>
+            </label>
+            <div class="helper-text">Photos are compressed before saving to keep Android smoother.</div>
+            <div id="after-photo-preview"></div>
+        </div>
+    </div>
+
+    <div id="job-picker" class="job-picker hidden">
+        <div class="job-picker-header">
+            <h3 style="margin:0; color: var(--navy);">Select a Job</h3>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="delete-all-jobs" class="small-btn" type="button" style="background: var(--danger); color:white;">Delete All</button>
+                <button id="close-job-picker" class="small-btn" type="button">Close</button>
+            </div>
+        </div>
+        <div id="job-picker-list" class="job-picker-list"></div>
+    </div>
+
+    <div id="busy-overlay" class="overlay" aria-hidden="true">
+        <div class="overlay-card">
+            <div class="spinner"></div>
+            <div id="overlay-title" class="overlay-title">Working...</div>
+            <div id="overlay-subtitle" class="overlay-subtitle">Please keep this tab open while the file is prepared.</div>
+        </div>
+    </div>
+
+<script>
+const jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+const STORAGE_KEY = "accessJobs_v2";
+const MAX_BEFORE_PHOTOS = 5;
+const MAX_AFTER_PHOTOS = 5;
+const SAVE_DEBOUNCE_MS = 250;
+const STORAGE_WARN_BYTES = 4_500_000;
+const IMAGE_MAX_DIMENSION = 1600;
+const IMAGE_JPEG_QUALITY = 0.72;
+
+let jobsData = { jobs: {}, currentJobId: null };
+let saveTimer = null;
+let busyCounter = 0;
+
+const MATERIAL_OPTIONS = [
+    "",
+    "Ballast", "Bolts", "Catchpit Rings", "Chairs", "Clips", "Concrete Sleepers",
+    "Crossing", "Drainage Pipes", "Fencing", "Fishplates", "Geotextile", "IBJs",
+    "Pads", "Pea Gravel", "Plain Line Rail", "Switch", "Timbers", "Troughing",
+    "Wooden Sleepers", "Other"
+];
+
+const CONDITION_OPTIONS = ["", "New", "Servicable", "Scrap"];
+const UOM_OPTIONS = ["", "Each", "Metres", "Tonnes", "Tonne Bags"];
+
+function showBusy(title, subtitle) {
+    busyCounter += 1;
+    const overlay = document.getElementById("busy-overlay");
+    const titleEl = document.getElementById("overlay-title");
+    const subtitleEl = document.getElementById("overlay-subtitle");
+    titleEl.textContent = title || "Working...";
+    subtitleEl.textContent = subtitle || "Please keep this tab open while the file is prepared.";
+    overlay.classList.add("open");
+    overlay.setAttribute("aria-hidden", "false");
+}
+
+function hideBusy() {
+    busyCounter = Math.max(0, busyCounter - 1);
+    if (busyCounter > 0) return;
+    const overlay = document.getElementById("busy-overlay");
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden", "true");
+}
+
+function cleanAccessName(str) {
+    return String(str || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .replace(/[^\w\s\-]/g, "")
+        .trim();
+}
+
+function buildDisplayDate(isoDate) {
+    return formatUK(isoDate);
+}
+
+function buildSafeFilePart(str) {
+    return String(str || "")
+        .replace(/[\\/:*?"<>|]/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function buildDateCode(isoDate) {
+    if (!isoDate) return "";
+    const parts = String(isoDate).split("-");
+    if (parts.length !== 3) return "";
+    const [year, month, day] = parts;
+    return `${year.slice(-2)}${month}${day}`;
+}
+
+function createStorageKey() {
+    return `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatUK(dateString) {
+    if (!dateString) return "-";
+    const [year, month, day] = dateString.split("-");
+    if (!year || !month || !day) return "-";
+    return `${day}/${month}/${year}`;
+}
+
+function getInitials(name) {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "";
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return parts[0][0].toUpperCase() + parts[parts.length - 1][0].toUpperCase();
+}
+
+function getEngineerInitials(name) {
+    if (!name) return "";
+    return name
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(part => part[0].toUpperCase())
+        .join("");
+}
+
+function createBlankItem() {
+    return { materialType: "", condition: "", uom: "", qty: "", notes: "", distance: "", status: "" };
+}
+
+function createBlankSection() {
+    return {
+        fields: {
+            accessName: "",
+            w3w: "",
+            mileageMiles: "",
+            mileageChains: "",
+            elr: "",
+            nearestLine: "",
+            accessType: "",
+            parkingAvailable: "",
+            parkingNotes: "",
+            hazards: "",
+            underfoot: "",
+            vegetation: "",
+            lorrySuitable: "",
+            ohlPresent: "",
+            notes: ""
+        },
+        items: [createBlankItem()]
+    };
+}
+
+function normalizeJob(job) {
+    const section = Array.isArray(job?.sections) && job.sections.length ? job.sections[0] : createBlankSection();
+    return {
+        id: job?.id || "",
+        shiftDate: job?.shiftDate || todayISO(),
+        engineerName: job?.engineerName || "",
+        photos: Array.isArray(job?.photos) ? job.photos.filter(Boolean) : [],
+        afterPhotos: Array.isArray(job?.afterPhotos) ? job.afterPhotos.filter(Boolean) : [],
+        completionNotes: job?.completionNotes || "",
+        completedBy: job?.completedBy || "",
+        expectedCompletionDate: job?.expectedCompletionDate || "",
+        completedDate: job?.completedDate || "",
+        jobReference: job?.jobReference || "",
+        sequence: job?.sequence || "",
+        sequenceOwnerInitials: job?.sequenceOwnerInitials || "",
+        sections: [{
+            fields: { ...createBlankSection().fields, ...(section.fields || {}) },
+            items: Array.isArray(section.items) && section.items.length ? section.items.map(item => ({ ...createBlankItem(), ...item })) : [createBlankItem()]
+        }]
+    };
+}
+
+function getEstimatedStorageBytes() {
+    try {
+        return new Blob([JSON.stringify(jobsData)]).size;
+    } catch (err) {
+        try {
+            return JSON.stringify(jobsData).length;
+        } catch (innerErr) {
+            return 0;
+        }
+    }
+}
+
+function updateStoragePill() {
+    const el = document.getElementById("storage-pill");
+    if (!el) return;
+    const bytes = getEstimatedStorageBytes();
+    const mb = (bytes / 1024 / 1024).toFixed(2);
+    el.textContent = `Storage: ${mb} MB`;
+    if (bytes >= STORAGE_WARN_BYTES) {
+        el.style.background = "#fdeaea";
+        el.style.color = "#8b1e1e";
+    } else {
+        el.style.background = "#eef3f8";
+        el.style.color = "#0A1F44";
+    }
+}
+
+function persistJobsData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(jobsData));
+    updateStoragePill();
+}
+
+function saveJobsData(immediate = false) {
+    const doSave = () => {
+        try {
+            persistJobsData();
+        } catch (err) {
+            console.error("Saving failed:", err);
+            alert("This device is running low on storage for saved jobs and photos. Remove older jobs or reduce photo count.");
+        }
+    };
+
+    if (immediate) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        doSave();
+        return;
+    }
+
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(doSave, SAVE_DEBOUNCE_MS);
+}
+
+function loadJobsData() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            jobsData = JSON.parse(saved);
+        } catch (err) {
+            jobsData = { jobs: {}, currentJobId: null };
+        }
+    }
+
+    if (!jobsData || typeof jobsData !== "object") jobsData = { jobs: {}, currentJobId: null };
+    if (!jobsData.jobs || typeof jobsData.jobs !== "object") jobsData.jobs = {};
+
+    Object.keys(jobsData.jobs).forEach(key => {
+        jobsData.jobs[key] = normalizeJob(jobsData.jobs[key]);
+    });
+
+    updateStoragePill();
+}
+
+function getCurrentJob() {
+    return jobsData.jobs[jobsData.currentJobId] || null;
+}
+
+function getNextSequenceForEngineer(initials, currentJob = null) {
+    let max = 0;
+
+    Object.keys(jobsData.jobs).forEach(key => {
+        const job = jobsData.jobs[key];
+        if (!job || job === currentJob || !job.id) return;
+        if (!job.id.startsWith(initials + "-")) return;
+        const match = job.id.match(/-(\d+)$/);
+        const seq = match ? parseInt(match[1], 10) : NaN;
+        if (!Number.isNaN(seq) && seq > max) max = seq;
+    });
+
+    return String(max + 1).padStart(3, "0");
+}
+
+function createNewJob() {
+    const storageKey = createStorageKey();
+    jobsData.jobs[storageKey] = normalizeJob({
+        id: "",
+        shiftDate: todayISO(),
+        engineerName: document.getElementById("engineer-name")?.value?.trim() || "",
+        sections: [createBlankSection()]
+    });
+    jobsData.currentJobId = storageKey;
+    saveJobsData(true);
+    renderAllSections();
+}
+
+function rebuildJobIdentity() {
+    const job = getCurrentJob();
+    if (!job) return;
+
+    const section = job.sections?.[0] || createBlankSection();
+    job.sections[0] = section;
+
+    const cleanedAccess = cleanAccessName(section.fields.accessName || "");
+    const displayDate = buildDisplayDate(job.shiftDate);
+    const initials = getEngineerInitials(job.engineerName || "");
+
+    job.jobReference = cleanedAccess;
+
+    if (!cleanedAccess || !initials || !displayDate) {
+        job.id = "";
+        updateJobHeaderFields();
+        saveJobsData();
+        return;
+    }
+
+    if (!job.sequence || job.sequenceOwnerInitials !== initials) {
+        job.sequence = getNextSequenceForEngineer(initials, job);
+        job.sequenceOwnerInitials = initials;
+    }
+
+    job.id = `${initials}-${cleanedAccess}-${displayDate}-${job.sequence}`;
+    updateJobHeaderFields();
+    saveJobsData();
+}
+
+function updateDatePreview(inputId, previewId) {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    if (!preview) return;
+    preview.textContent = formatUK(input?.value || "") || "DD/MM/YYYY";
+}
+
+function updateJobHeaderFields() {
+    const job = getCurrentJob();
+    const jobIdInput = document.getElementById("job-id");
+    const jobDateInput = document.getElementById("job-date");
+    const engineerNameInput = document.getElementById("engineer-name");
+    const completedByInput = document.getElementById("completed-by");
+    const expectedCompletionDateInput = document.getElementById("expected-completion-date");
+    const completedDateInput = document.getElementById("completed-date");
+    const jobReferenceInput = document.getElementById("job-reference");
+    const completionNotesInput = document.getElementById("completion-notes");
+
+    if (!job) {
+        jobIdInput.value = "";
+        jobDateInput.value = "";
+        engineerNameInput.value = "";
+        completedByInput.value = "";
+        expectedCompletionDateInput.value = "";
+        completedDateInput.value = "";
+        jobReferenceInput.value = "";
+        completionNotesInput.value = "";
+        updateDatePreview("job-date", "job-date-display");
+        updateDatePreview("expected-completion-date", "expected-completion-date-display");
+        updateDatePreview("completed-date", "completed-date-display");
+        document.getElementById("photo-preview")?.replaceChildren();
+        document.getElementById("after-photo-preview")?.replaceChildren();
+        return;
+    }
+
+    jobIdInput.value = job.id || "";
+    jobDateInput.value = job.shiftDate || "";
+    engineerNameInput.value = job.engineerName || "";
+    completedByInput.value = job.completedBy || "";
+    expectedCompletionDateInput.value = job.expectedCompletionDate || "";
+    completedDateInput.value = job.completedDate || "";
+    jobReferenceInput.value = job.jobReference || "";
+    completionNotesInput.value = job.completionNotes || "";
+    updateDatePreview("job-date", "job-date-display");
+    updateDatePreview("expected-completion-date", "expected-completion-date-display");
+    updateDatePreview("completed-date", "completed-date-display");
+
+    renderPhotoPreview();
+    renderAfterPhotoPreview();
+}
+
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function canvasToDataUrl(canvas, quality = IMAGE_JPEG_QUALITY) {
+    try {
+        return canvas.toDataURL("image/jpeg", quality);
+    } catch (err) {
+        return null;
+    }
+}
+
+function drawCompressedToCanvas(source, width, height, maxDimension = IMAGE_MAX_DIMENSION) {
+    let targetWidth = width;
+    let targetHeight = height;
+
+    if (width > height && width > maxDimension) {
+        targetWidth = maxDimension;
+        targetHeight = Math.round((height / width) * maxDimension);
+    } else if (height >= width && height > maxDimension) {
+        targetHeight = maxDimension;
+        targetWidth = Math.round((width / height) * maxDimension);
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+    ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+    return canvas;
+}
+
+function normalisePhotoForStorage(file) {
+    return new Promise(async (resolve, reject) => {
+        const fallback = () => readFileAsDataURL(file).then(resolve).catch(reject);
+
+        try {
+            if (window.createImageBitmap) {
+                try {
+                    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+                    const canvas = drawCompressedToCanvas(bitmap, bitmap.width, bitmap.height);
+                    const dataUrl = canvas ? canvasToDataUrl(canvas) : null;
+                    if (dataUrl) {
+                        resolve(dataUrl);
+                        return;
+                    }
+                } catch (err) {
+                    // fall through to manual path
+                }
+            }
+
+            const processWithOrientation = orientation => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const width = img.naturalWidth || img.width;
+                        const height = img.naturalHeight || img.height;
+                        if (!width || !height) {
+                            fallback();
+                            return;
+                        }
+
+                        const swap = [5, 6, 7, 8].includes(orientation);
+                        const canvas = document.createElement("canvas");
+                        canvas.width = swap ? height : width;
+                        canvas.height = swap ? width : height;
+                        const ctx = canvas.getContext("2d", { alpha: false });
+                        if (!ctx) {
+                            fallback();
+                            return;
+                        }
+
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        switch (orientation) {
+                            case 2:
+                                ctx.translate(width, 0);
+                                ctx.scale(-1, 1);
+                                break;
+                            case 3:
+                                ctx.translate(width, height);
+                                ctx.rotate(Math.PI);
+                                break;
+                            case 4:
+                                ctx.translate(0, height);
+                                ctx.scale(1, -1);
+                                break;
+                            case 5:
+                                ctx.rotate(0.5 * Math.PI);
+                                ctx.scale(1, -1);
+                                ctx.drawImage(img, 0, -height, width, height);
+                                {
+                                    const shrunk = drawCompressedToCanvas(canvas, canvas.width, canvas.height);
+                                    resolve((shrunk && canvasToDataUrl(shrunk)) || canvasToDataUrl(canvas) || e.target.result);
+                                    return;
+                                }
+                            case 6:
+                                ctx.rotate(0.5 * Math.PI);
+                                ctx.translate(0, -height);
+                                break;
+                            case 7:
+                                ctx.rotate(0.5 * Math.PI);
+                                ctx.translate(width, -height);
+                                ctx.scale(-1, 1);
+                                break;
+                            case 8:
+                                ctx.rotate(-0.5 * Math.PI);
+                                ctx.translate(-width, 0);
+                                break;
+                            default:
+                                break;
+                        }
+
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const shrunk = drawCompressedToCanvas(canvas, canvas.width, canvas.height);
+                        resolve((shrunk && canvasToDataUrl(shrunk)) || canvasToDataUrl(canvas) || e.target.result);
+                    };
+                    img.onerror = fallback;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            };
+
+            if (!window.EXIF) {
+                fallback();
+                return;
+            }
+
+            EXIF.getData(file, function () {
+                const orientation = EXIF.getTag(this, "Orientation") || 1;
+                processWithOrientation(orientation);
+            });
+        } catch (err) {
+            fallback();
+        }
+    });
+}
+
+async function addPhotosFromInput(input, type) {
+    const job = getCurrentJob();
+    if (!job || !input.files || !input.files.length) return;
+
+    const targetKey = type === "after" ? "afterPhotos" : "photos";
+    const maxPhotos = type === "after" ? MAX_AFTER_PHOTOS : MAX_BEFORE_PHOTOS;
+    job[targetKey] = Array.isArray(job[targetKey]) ? job[targetKey] : [];
+
+    const remaining = maxPhotos - job[targetKey].length;
+    if (remaining <= 0) {
+        alert(`Maximum of ${maxPhotos} ${type.toUpperCase()} photos allowed.`);
+        input.value = "";
+        return;
+    }
+
+    const files = Array.from(input.files).slice(0, remaining);
+    if (input.files.length > remaining) {
+        alert(`Only the first ${remaining} ${type.toUpperCase()} photo(s) were added. Maximum is ${maxPhotos}.`);
+    }
+
+    showBusy("Adding photos...", "Compressing images for smoother mobile storage and export.");
+
+    try {
+        for (const file of files) {
+            try {
+                const corrected = await normalisePhotoForStorage(file);
+                if (corrected) job[targetKey].push(corrected);
+            } catch (err) {
+                console.error("Photo upload failed", err);
+            }
+        }
+
+        saveJobsData(true);
+        if (getEstimatedStorageBytes() > STORAGE_WARN_BYTES) {
+            alert("This device is getting close to storage limits. Consider exporting the PDF and deleting older jobs or extra photos.");
+        }
+
+        if (type === "after") {
+            renderAfterPhotoPreview();
+        } else {
+            renderPhotoPreview();
+        }
+    } finally {
+        input.value = "";
+        hideBusy();
+    }
+}
+
+function handleMultiPhotoUpload(input) {
+    addPhotosFromInput(input, "before");
+}
+
+function handleAfterPhotoUpload(input) {
+    addPhotosFromInput(input, "after");
+}
+
+function renderPreview(containerId, photos, onDelete) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = "";
+    (photos || []).forEach((src, idx) => {
+        const wrap = document.createElement("div");
+        wrap.className = "preview-photo-card";
+
+        const img = document.createElement("img");
+        img.src = typeof src === "string" ? src : (src && src.dataUrl ? src.dataUrl : "");
+        img.alt = `Attached photo ${idx + 1}`;
+        img.loading = "lazy";
+        img.decoding = "async";
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "Remove";
+        del.className = "small-btn";
+        del.style.background = "var(--danger-soft)";
+        del.addEventListener("click", () => onDelete(idx));
+
+        wrap.appendChild(img);
+        wrap.appendChild(del);
+        container.appendChild(wrap);
+    });
+}
+
+function renderPhotoPreview() {
+    const job = getCurrentJob();
+    if (!job) return;
+    renderPreview("photo-preview", job.photos || [], idx => {
+        job.photos.splice(idx, 1);
+        saveJobsData(true);
+        renderPhotoPreview();
+    });
+}
+
+function renderAfterPhotoPreview() {
+    const job = getCurrentJob();
+    if (!job) return;
+    renderPreview("after-photo-preview", job.afterPhotos || [], idx => {
+        job.afterPhotos.splice(idx, 1);
+        saveJobsData(true);
+        renderAfterPhotoPreview();
+    });
+}
+
+function makeField(labelText, value, onChange, minWidth, type = "text") {
+    const wrapper = document.createElement("label");
+    wrapper.textContent = labelText;
+
+    const input = document.createElement("input");
+    input.type = type;
+    input.value = value || "";
+    if (minWidth) input.style.minWidth = minWidth;
+    input.addEventListener("input", () => onChange(input.value));
+
+    wrapper.appendChild(input);
+    return wrapper;
+}
+
+function makeSelectField(labelText, value, onChange, options) {
+    const wrapper = document.createElement("label");
+    wrapper.textContent = labelText;
+
+    const sel = document.createElement("select");
+    options.forEach(o => {
+        const opt = document.createElement("option");
+        opt.value = o;
+        opt.textContent = o;
+        sel.appendChild(opt);
+    });
+    sel.value = value || "";
+    sel.addEventListener("change", () => onChange(sel.value));
+
+    wrapper.appendChild(sel);
+    return wrapper;
+}
+
+function makeInputCell(item, key, type = "text", labelText) {
+    const td = document.createElement("td");
+    if (labelText) td.dataset.label = labelText;
+    const input = document.createElement("input");
+    input.type = type;
+    if (type === "number") {
+        input.min = "0";
+        input.step = "1";
+    }
+    input.value = item[key] || "";
+    input.addEventListener("input", () => {
+        item[key] = input.value;
+        saveJobsData();
+    });
+    td.appendChild(input);
+    return td;
+}
+
+function makeSelectCell(item, key, options, labelText) {
+    const td = document.createElement("td");
+    if (labelText) td.dataset.label = labelText;
+    const sel = document.createElement("select");
+    options.forEach(o => {
+        const opt = document.createElement("option");
+        opt.value = o;
+        opt.textContent = o;
+        sel.appendChild(opt);
+    });
+    sel.value = item[key] || options[0];
+    sel.addEventListener("change", () => {
+        item[key] = sel.value;
+        saveJobsData();
+    });
+    td.appendChild(sel);
+    return td;
+}
+
+function getStatusText(item) {
+    const distance = parseInt(item.distance, 10);
+    if (Number.isNaN(distance)) return "Awaiting input...";
+    if (distance < 3) return "<3m possession required";
+    return "3m or more no possession required";
+}
+
+function updateMaterialStatus(row, item) {
+    const statusTd = row.querySelector(".status-cell");
+    if (!statusTd) return;
+
+    const distance = parseInt(item.distance, 10);
+    if (Number.isNaN(distance)) {
+        statusTd.textContent = "Awaiting input...";
+        statusTd.style.background = "";
+        statusTd.style.color = "";
+        return;
+    }
+
+    if (distance < 3) {
+        statusTd.textContent = "<3m possession required";
+        statusTd.style.background = "var(--fail)";
+        statusTd.style.color = "white";
+    } else {
+        statusTd.textContent = "3m or more no possession required";
+        statusTd.style.background = "var(--ok)";
+        statusTd.style.color = "white";
+    }
+}
+
+function renderItemRow(sectionData, item, idx) {
+    const tr = document.createElement("tr");
+
+    tr.appendChild(makeSelectCell(item, "materialType", MATERIAL_OPTIONS, "Material Type"));
+    tr.appendChild(makeSelectCell(item, "condition", CONDITION_OPTIONS, "Condition"));
+    tr.appendChild(makeSelectCell(item, "uom", UOM_OPTIONS, "UOM"));
+    tr.appendChild(makeInputCell(item, "qty", "text", "Qty"));
+    tr.appendChild(makeInputCell(item, "notes", "text", "Notes"));
+
+    const distTd = document.createElement("td");
+    distTd.dataset.label = "Distance from nearest running rail (m)";
+    const distInput = document.createElement("input");
+    distInput.type = "number";
+    distInput.min = "0";
+    distInput.step = "1";
+    distInput.value = item.distance || "";
+    distInput.addEventListener("input", () => {
+        item.distance = distInput.value;
+        saveJobsData();
+        updateMaterialStatus(tr, item);
+    });
+    distTd.appendChild(distInput);
+    tr.appendChild(distTd);
+
+    const statusTd = document.createElement("td");
+    statusTd.dataset.label = "Status";
+    statusTd.className = "status-cell";
+    statusTd.textContent = item.distance ? "" : "Awaiting input...";
+    tr.appendChild(statusTd);
+
+    const td = document.createElement("td");
+    td.dataset.label = "Actions";
+    td.className = "actions-cell";
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.textContent = "Remove";
+    del.className = "small-btn";
+    del.style.background = "var(--danger-soft)";
+    del.addEventListener("click", () => {
+        sectionData.items.splice(idx, 1);
+        if (!sectionData.items.length) sectionData.items.push(createBlankItem());
+        saveJobsData(true);
+        renderAllSections();
+    });
+
+    td.appendChild(del);
+    tr.appendChild(td);
+
+    requestAnimationFrame(() => updateMaterialStatus(tr, item));
+    return tr;
+}
+
+function renderSection(job, sectionData) {
+    const sectionEl = document.createElement("div");
+    sectionEl.className = "section";
+
+    const header = document.createElement("div");
+    header.className = "section-header";
+    const title = document.createElement("span");
+    title.className = "section-title";
+    title.textContent = "Access Point";
+    header.appendChild(title);
+    sectionEl.appendChild(header);
+
+    const row1 = document.createElement("div");
+    row1.className = "field-row";
+    row1.appendChild(makeField("Access Point Name / ID:", sectionData.fields.accessName, v => {
+        sectionData.fields.accessName = v;
+        rebuildJobIdentity();
+        saveJobsData();
+    }, "220px"));
+    row1.appendChild(makeField("What3Words:", sectionData.fields.w3w, v => { sectionData.fields.w3w = v; saveJobsData(); }));
+    row1.appendChild(makeField("Mileage (Miles):", sectionData.fields.mileageMiles, v => { sectionData.fields.mileageMiles = v; saveJobsData(); }, null, "number"));
+    row1.appendChild(makeField("Mileage (Chains):", sectionData.fields.mileageChains, v => { sectionData.fields.mileageChains = v; saveJobsData(); }, null, "number"));
+    row1.appendChild(makeField("ELR:", sectionData.fields.elr, v => { sectionData.fields.elr = v; saveJobsData(); }));
+    sectionEl.appendChild(row1);
+
+    const row1b = document.createElement("div");
+    row1b.className = "field-row";
+    row1b.appendChild(makeField("Nearest Running Line:", sectionData.fields.nearestLine, v => { sectionData.fields.nearestLine = v; saveJobsData(); }));
+    row1b.appendChild(makeSelectField("Access Type:", sectionData.fields.accessType, v => { sectionData.fields.accessType = v; saveJobsData(); }, ["", "Vehicle", "On Foot"]));
+    row1b.appendChild(makeSelectField("Parking Available:", sectionData.fields.parkingAvailable, v => { sectionData.fields.parkingAvailable = v; saveJobsData(); }, ["", "Yes", "No"]));
+    row1b.appendChild(makeField("Parking Notes:", sectionData.fields.parkingNotes, v => { sectionData.fields.parkingNotes = v; saveJobsData(); }, "220px"));
+    sectionEl.appendChild(row1b);
+
+    const row2 = document.createElement("div");
+    row2.className = "field-row";
+    row2.appendChild(makeField("Hazards:", sectionData.fields.hazards, v => { sectionData.fields.hazards = v; saveJobsData(); }, "220px"));
+    row2.appendChild(makeSelectField("Underfoot Conditions:", sectionData.fields.underfoot, v => { sectionData.fields.underfoot = v; saveJobsData(); }, ["", "Good", "Moderate", "Poor"]));
+    row2.appendChild(makeSelectField("Vegetation Level:", sectionData.fields.vegetation, v => { sectionData.fields.vegetation = v; saveJobsData(); }, ["", "Good", "Moderate", "Poor"]));
+    row2.appendChild(makeSelectField("Lorry Suitable:", sectionData.fields.lorrySuitable, v => { sectionData.fields.lorrySuitable = v; saveJobsData(); }, ["", "Yes", "No"]));
+    row2.appendChild(makeSelectField("OHL Present:", sectionData.fields.ohlPresent, v => { sectionData.fields.ohlPresent = v; saveJobsData(); }, ["", "Yes", "No"]));
+    sectionEl.appendChild(row2);
+
+    const row3 = document.createElement("div");
+    row3.className = "field-row";
+    row3.appendChild(makeField("Notes:", sectionData.fields.notes, v => { sectionData.fields.notes = v; saveJobsData(); }, "260px"));
+    sectionEl.appendChild(row3);
+
+    const photoBlock = document.createElement("div");
+    photoBlock.className = "photo-block";
+    photoBlock.innerHTML = `
+        <label>Add BEFORE Photo(s)
+            <input id="before-photo-input" type="file" accept="image/*" multiple>
+        </label>
+        <div class="helper-text">Compressed on-device before saving to local storage.</div>
+        <div id="photo-preview"></div>
+    `;
+    sectionEl.appendChild(photoBlock);
+
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "table-wrap";
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const tr = document.createElement("tr");
+    ["Material Type", "Condition", "UOM", "Qty", "Notes", "Distance from nearest running rail (m)", "Status", "Actions"].forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    sectionData.items.forEach((item, idx) => tbody.appendChild(renderItemRow(sectionData, item, idx)));
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    sectionEl.appendChild(tableWrap);
+
+    const addLine = document.createElement("button");
+    addLine.type = "button";
+    addLine.textContent = "Add Material";
+    addLine.className = "small-btn";
+    addLine.addEventListener("click", () => {
+        sectionData.items.push(createBlankItem());
+        saveJobsData(true);
+        renderAllSections();
+    });
+    sectionEl.appendChild(addLine);
+
+    return sectionEl;
+}
+
+function renderAllSections() {
+    const job = getCurrentJob();
+    const container = document.getElementById("sectionsContainer");
+    container.innerHTML = "";
+    if (!job) return;
+
+    const section = job.sections?.[0] || createBlankSection();
+    job.sections[0] = section;
+    updateJobHeaderFields();
+    container.appendChild(renderSection(job, section));
+
+    document.getElementById("before-photo-input")?.addEventListener("change", e => handleMultiPhotoUpload(e.target));
+    renderPhotoPreview();
+    renderAfterPhotoPreview();
+}
+
+function estimatePdfFileName(job, suffix) {
+    const safeId = buildSafeFilePart(job.id || "access-job");
+    return `${safeId}_${suffix}`;
+}
+
+function csvEscape(value) {
+    return `"${String(value || "").replace(/"/g, '""')}"`;
+}
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    try {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    } catch (err) {
+        console.warn("Direct download fallback triggered", err);
+        window.open(url, "_blank", "noopener");
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+
+function canUseNativeFileShare(file) {
+    try {
+        return !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (err) {
+        return false;
+    }
+}
+
+async function shareFile(blob, filename, mimeType, titleText) {
+    const file = new File([blob], filename, { type: mimeType });
+
+    if (canUseNativeFileShare(file)) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: titleText || filename,
+                text: titleText || filename
+            });
+            return "shared";
+        } catch (err) {
+            if (err && err.name === "AbortError") {
+                return "cancelled";
+            }
+            console.warn("Native file share failed, falling back to download", err);
+        }
+    }
+
+    downloadBlob(blob, filename);
+    return "downloaded";
+}
+
+function exportCSV() {
+    const job = getCurrentJob();
+    if (!job) {
+        alert("No job loaded.");
+        return;
+    }
+
+    const section = job.sections?.[0] || createBlankSection();
+    const rows = [
+        "JobID,ShiftDate,EngineerName,EngineerInitials,AccessPoint,AccessName,W3W,MileageMiles,MileageChains,ELR,NearestLine,AccessType,ParkingAvailable,ParkingNotes,Hazards,Underfoot,Vegetation,LorrySuitable,OHLPresent,Notes,MaterialType,Condition,UOM,Qty,MatNotes,Distance,Status,CompletedBy,ExpectedCompletionDate,CompletedDate,JobReference,CompletionNotes"
+    ];
+
+    const initials = getInitials(job.engineerName);
+    section.items.forEach(item => {
+        rows.push([
+            job.id,
+            job.shiftDate,
+            job.engineerName || "",
+            initials,
+            1,
+            section.fields.accessName,
+            section.fields.w3w,
+            section.fields.mileageMiles,
+            section.fields.mileageChains,
+            section.fields.elr,
+            section.fields.nearestLine,
+            section.fields.accessType,
+            section.fields.parkingAvailable,
+            section.fields.parkingNotes,
+            section.fields.hazards,
+            section.fields.underfoot,
+            section.fields.vegetation,
+            section.fields.lorrySuitable,
+            section.fields.ohlPresent,
+            section.fields.notes,
+            item.materialType,
+            item.condition,
+            item.uom,
+            item.qty,
+            item.notes,
+            item.distance || "",
+            getStatusText(item),
+            job.completedBy || "",
+            job.expectedCompletionDate || "",
+            job.completedDate || "",
+            job.jobReference || "",
+            job.completionNotes || ""
+        ].map(csvEscape).join(","));
+    });
+
+    const filename = estimatePdfFileName(job, "access.csv");
+    downloadBlob(new Blob([rows.join("\n")], { type: "text/csv" }), filename);
+}
+
+async function addPhotosToPdf(pdf, photoArray, label, drawHeader) {
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const marginX = 10;
+    const topStart = 30;
+    const gapY = 12;
+    const columns = 1;
+    const rows = 2;
+    const photosPerPage = columns * rows;
+    const captionHeight = 6;
+    const slotWidth = pageWidth - (marginX * 2);
+    const slotHeight = (pageHeight - topStart - 14 - gapY) / rows;
+    const imageBoxHeight = slotHeight - captionHeight;
+
+    for (let startIndex = 0; startIndex < photoArray.length; startIndex += photosPerPage) {
+        pdf.addPage();
+        drawHeader();
+        pdf.setFontSize(12);
+        pdf.text(label, 10, 24);
+
+        const pageItems = photoArray.slice(startIndex, startIndex + photosPerPage);
+
+        for (let offset = 0; offset < pageItems.length; offset += 1) {
+            const src = pageItems[offset];
+            const column = offset % columns;
+            const row = Math.floor(offset / columns);
+            const frameX = marginX + column * slotWidth;
+            const frameY = topStart + row * (slotHeight + gapY);
+
+            pdf.setDrawColor(215, 221, 229);
+            pdf.rect(frameX, frameY, slotWidth, imageBoxHeight);
+            pdf.setFontSize(10);
+            pdf.text(`${label} ${startIndex + offset + 1}`, frameX, frameY + imageBoxHeight + 4);
+
+            await new Promise(resolve => {
+                const img = new Image();
+                img.onload = function () {
+                    const w = img.width || 1;
+                    const h = img.height || 1;
+                    const scale = Math.min((slotWidth - 4) / w, (imageBoxHeight - 4) / h);
+                    const drawW = w * scale;
+                    const drawH = h * scale;
+                    const drawX = frameX + (slotWidth - drawW) / 2;
+                    const drawY = frameY + (imageBoxHeight - drawH) / 2;
+                    pdf.addImage(img, "JPEG", drawX, drawY, drawW, drawH);
+                    resolve();
+                };
+                img.onerror = resolve;
+                img.src = src;
+            });
+        }
+    }
+}
+
+async function buildPdfBlob(job) {
+    const pdf = new jsPDF("l", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const section = job.sections?.[0] || createBlankSection();
+    const f = section.fields;
+
+    function drawHeader() {
+        pdf.setFillColor(10, 31, 68);
+        pdf.rect(0, 0, pageWidth, 18, "F");
+
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(14);
+        pdf.text("Access Scoping Report", 10, 12);
+
+        pdf.setFontSize(10);
+        pdf.text(`Job: ${job.id || "-"}`, pageWidth - 110, 8);
+        pdf.text(`Shift: ${formatUK(job.shiftDate)}`, pageWidth - 110, 12);
+        pdf.text(`Engineer: ${job.engineerName || "-"}`, pageWidth - 110, 16);
+        pdf.text(`Job Ref: ${job.jobReference || "-"}`, pageWidth - 60, 12);
+
+        pdf.setTextColor(0, 0, 0);
+    }
+
+    drawHeader();
+    let currentY = 24;
+
+    pdf.setFontSize(12);
+    pdf.text("Access Point", 10, currentY);
+    currentY += 6;
+
+    pdf.autoTable({
+        startY: currentY,
+        head: [["Field", "Value"]],
+        body: [
+            ["Expected Completion Date", formatUK(job.expectedCompletionDate)],
+            ["Access Name / ID", f.accessName || ""],
+            ["What3Words", f.w3w || ""],
+            ["Mileage", `${f.mileageMiles || ""}m ${f.mileageChains || ""}ch`],
+            ["ELR", f.elr || ""],
+            ["Nearest Running Line", f.nearestLine || ""],
+            ["Access Type", f.accessType || ""],
+            ["Parking Available", f.parkingAvailable || ""],
+            ["Parking Notes", f.parkingNotes || ""],
+            ["Hazards", f.hazards || ""],
+            ["Underfoot Conditions", f.underfoot || ""],
+            ["Vegetation Level", f.vegetation || ""],
+            ["Lorry Suitable", f.lorrySuitable || ""],
+            ["OHL Present", f.ohlPresent || ""],
+            ["Notes", f.notes || ""]
+        ],
+        theme: "grid",
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [226, 226, 226] },
+        margin: { left: 10, right: 10 },
+        didDrawPage: data => {
+            if (data.pageNumber > 1) drawHeader();
+        }
+    });
+
+    currentY = (pdf.lastAutoTable?.finalY || currentY) + 6;
+
+    const itemsBody = section.items.map(item => [
+        item.materialType || "",
+        item.condition || "",
+        item.uom || "",
+        item.qty || "",
+        item.notes || "",
+        item.distance || "",
+        getStatusText(item)
+    ]);
+
+    if (itemsBody.length) {
+        pdf.autoTable({
+            startY: currentY,
+            head: [["Material Type", "Condition", "UOM", "Qty", "Notes", "Distance (m)", "Status"]],
+            body: itemsBody,
+            theme: "grid",
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fillColor: [200, 200, 200] },
+            margin: { left: 10, right: 10 },
+            didParseCell: data => {
+                if (data.section === "body" && data.column.index === 6) {
+                    const item = section.items[data.row.index];
+                    const distance = parseInt(item.distance, 10);
+                    if (!Number.isNaN(distance)) {
+                        if (distance < 3) {
+                            data.cell.styles.fillColor = [192, 57, 43];
+                            data.cell.styles.textColor = [255, 255, 255];
+                        } else {
+                            data.cell.styles.fillColor = [46, 139, 87];
+                            data.cell.styles.textColor = [255, 255, 255];
+                        }
+                    }
+                }
+            },
+            didDrawPage: data => {
+                if (data.pageNumber > 1) drawHeader();
+            }
+        });
+    }
+
+    if (job.photos?.length) {
+        await addPhotosToPdf(pdf, job.photos, "Before Photo", drawHeader);
+    }
+
+    pdf.addPage();
+    drawHeader();
+    let y = 24;
+
+    pdf.setFontSize(12);
+    pdf.text("After Work Completion", 10, y);
+    y += 8;
+
+    pdf.setFontSize(10);
+    pdf.text(`Completed By: ${job.completedBy || job.engineerName || "-"}`, 10, y); y += 5;
+    pdf.text(`Completion Date: ${formatUK(job.completedDate)}`, 10, y); y += 5;
+    pdf.text(`Job Reference: ${job.jobReference || "-"}`, 10, y); y += 8;
+
+    pdf.setFontSize(12);
+    pdf.text("Completion Notes", 10, y);
+    y += 6;
+
+    pdf.setFontSize(10);
+    const notes = job.completionNotes || "-";
+    const wrapped = pdf.splitTextToSize(notes, pageWidth - 20);
+    pdf.text(wrapped, 10, y);
+    y += wrapped.length * 5 + 10;
+
+    pdf.text("Engineer Signature: ____________________________", 10, y);
+
+    if (job.afterPhotos?.length) {
+        await addPhotosToPdf(pdf, job.afterPhotos, "After Photo", drawHeader);
+    }
+
+    return pdf.output("blob");
+}
+
+async function exportPDF() {
+    const job = getCurrentJob();
+    if (!job) {
+        alert("No job loaded.");
+        return;
+    }
+
+    saveJobsData(true);
+    showBusy("Preparing PDF...", "Building your PDF download.");
+
+    try {
+        const pdfBlob = await buildPdfBlob(job);
+        const filename = estimatePdfFileName(job, "access.pdf");
+        downloadBlob(pdfBlob, filename);
+    } catch (err) {
+        console.error("PDF export failed", err);
+        alert("PDF export failed on this device. Try again after removing some photos or closing other tabs.");
+    } finally {
+        hideBusy();
+    }
+}
+
+async function sharePDF() {
+    const job = getCurrentJob();
+    if (!job) {
+        alert("No job loaded.");
+        return;
+    }
+
+    saveJobsData(true);
+    showBusy("Preparing PDF...", "Opening the share sheet if your device supports file sharing.");
+
+    try {
+        const pdfBlob = await buildPdfBlob(job);
+        const filename = estimatePdfFileName(job, "access.pdf");
+        const result = await shareFile(pdfBlob, filename, "application/pdf", "Access Scoping PDF");
+
+        if (result === "downloaded") {
+            alert("This browser could not hand the PDF to a share sheet, so the file has been downloaded instead. You can attach that downloaded PDF to email manually.");
+        }
+    } catch (err) {
+        console.error("PDF share failed", err);
+        alert("PDF share failed on this device. Try exporting the PDF instead.");
+    } finally {
+        hideBusy();
+    }
+}
+
+function handleNewJob() {
+    if (getCurrentJob()) {
+        const ok = confirm("Start a new job? Current job will stay saved and you'll get a fresh sheet.");
+        if (!ok) return;
+    }
+    createNewJob();
+}
+
+function handleJobDateChange() {
+    const job = getCurrentJob();
+    if (!job) return;
+    const iso = document.getElementById("job-date").value;
+    if (!iso) return;
+    job.shiftDate = iso;
+    saveJobsData();
+    updateJobHeaderFields();
+}
+
+function handleEngineerNameChange() {
+    const job = getCurrentJob();
+    if (!job) return;
+    job.engineerName = document.getElementById("engineer-name").value.replace(/\s{2,}/g, " ");
+    rebuildJobIdentity();
+}
+
+function openJobPicker() {
+    const panel = document.getElementById("job-picker");
+    const list = document.getElementById("job-picker-list");
+    list.innerHTML = "";
+
+    const keys = Object.keys(jobsData.jobs).sort((a, b) => {
+        const aJob = jobsData.jobs[a];
+        const bJob = jobsData.jobs[b];
+        return (bJob.shiftDate || "").localeCompare(aJob.shiftDate || "") || ((bJob.id || "").localeCompare(aJob.id || ""));
+    });
+
+    if (!keys.length) {
+        const msg = document.createElement("div");
+        msg.textContent = "No saved jobs on this device.";
+        list.appendChild(msg);
+        panel.classList.remove("hidden");
+        return;
+    }
+
+    keys.forEach(key => {
+        const job = jobsData.jobs[key];
+        const row = document.createElement("div");
+        row.className = "job-row";
+
+        const loadBtn = document.createElement("button");
+        loadBtn.type = "button";
+        loadBtn.textContent = `${job.id || "(draft)"} | ${formatUK(job.shiftDate) || "-"} | ${job.engineerName || "-"}`;
+        loadBtn.addEventListener("click", () => {
+            jobsData.currentJobId = key;
+            saveJobsData(true);
+            renderAllSections();
+            closeJobPicker();
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.textContent = "Delete";
+        delBtn.className = "small-btn";
+        delBtn.style.background = "var(--danger)";
+        delBtn.style.color = "white";
+        delBtn.style.width = "88px";
+        delBtn.addEventListener("click", () => {
+            if (!confirm(`Delete job ${job.id || "(draft)"}?`)) return;
+            delete jobsData.jobs[key];
+            if (jobsData.currentJobId === key) {
+                jobsData.currentJobId = null;
+                createNewJob();
+            }
+            saveJobsData(true);
+            openJobPicker();
+        });
+
+        row.appendChild(loadBtn);
+        row.appendChild(delBtn);
+        list.appendChild(row);
+    });
+
+    panel.classList.remove("hidden");
+}
+
+function closeJobPicker() {
+    document.getElementById("job-picker").classList.add("hidden");
+}
+
+function deleteAllJobs() {
+    if (!confirm("Delete ALL jobs? This cannot be undone.")) return;
+    jobsData.jobs = {};
+    jobsData.currentJobId = null;
+    saveJobsData(true);
+    createNewJob();
+    openJobPicker();
+}
+
+function wireAfterFields() {
+    document.getElementById("completed-by").addEventListener("input", () => {
+        const job = getCurrentJob();
+        if (!job) return;
+        job.completedBy = document.getElementById("completed-by").value;
+        saveJobsData();
+    });
+
+    document.getElementById("expected-completion-date").addEventListener("input", () => {
+        updateDatePreview("expected-completion-date", "expected-completion-date-display");
+        const job = getCurrentJob();
+        if (!job) return;
+        job.expectedCompletionDate = document.getElementById("expected-completion-date").value;
+        saveJobsData();
+    });
+
+    document.getElementById("completed-date").addEventListener("input", () => {
+        updateDatePreview("completed-date", "completed-date-display");
+        const job = getCurrentJob();
+        if (!job) return;
+        job.completedDate = document.getElementById("completed-date").value;
+        saveJobsData();
+    });
+
+    document.getElementById("job-reference").addEventListener("input", () => {
+        const job = getCurrentJob();
+        if (!job) return;
+        job.jobReference = document.getElementById("job-reference").value;
+        saveJobsData();
+    });
+
+    document.getElementById("completion-notes").addEventListener("input", () => {
+        const job = getCurrentJob();
+        if (!job) return;
+        job.completionNotes = document.getElementById("completion-notes").value;
+        saveJobsData();
+    });
+
+    document.getElementById("after-photo-input").addEventListener("change", e => handleAfterPhotoUpload(e.target));
+}
+
+function wireGlobalButtons() {
+    document.getElementById("export-csv-btn").addEventListener("click", exportCSV);
+    document.getElementById("export-pdf-btn").addEventListener("click", exportPDF);
+    document.getElementById("share-pdf-btn").addEventListener("click", sharePDF);
+    document.getElementById("new-job-btn").addEventListener("click", handleNewJob);
+    document.getElementById("load-job-btn").addEventListener("click", openJobPicker);
+    document.getElementById("job-date").addEventListener("change", handleJobDateChange);
+    document.getElementById("job-date").addEventListener("input", () => updateDatePreview("job-date", "job-date-display"));
+    document.getElementById("engineer-name").addEventListener("input", handleEngineerNameChange);
+    document.getElementById("close-job-picker").addEventListener("click", closeJobPicker);
+    document.getElementById("delete-all-jobs").addEventListener("click", deleteAllJobs);
+}
+
+function wireBurgerMenu() {
+    const burgerBtn = document.getElementById("burger-btn");
+    const sideMenu = document.getElementById("side-menu");
+    if (!burgerBtn || !sideMenu) return;
+
+    burgerBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        sideMenu.classList.toggle("open");
+    }, { passive: true });
+
+    document.addEventListener("click", e => {
+        if (!sideMenu.contains(e.target) && e.target !== burgerBtn) {
+            sideMenu.classList.remove("open");
+        }
+    });
+}
+
+function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("Service Worker registered"))
+        .catch(err => console.error("SW registration failed:", err));
+}
+
+function init() {
+    loadJobsData();
+    wireGlobalButtons();
+    wireAfterFields();
+    wireBurgerMenu();
+    registerServiceWorker();
+
+    if (!jobsData.currentJobId || !jobsData.jobs[jobsData.currentJobId]) {
+        createNewJob();
+    } else {
+        renderAllSections();
+    }
+}
+
+init();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
